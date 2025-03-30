@@ -1,0 +1,105 @@
+@model Client.Models.HomeViewModel.HomeViewModel
+@{
+    ViewData["Title"] = TempData["CustomError"] != null ? TempData["CustomError"].ToString() : "All Vehicles";
+}
+
+<h2>@ViewData["Title"]</h2>
+@if (!Model.Companies.Any())
+{
+    <p>Companies missing</p>
+}
+else
+{
+    <div class="row">
+        <div class="col-lg-4">
+            @if (Model.Companies.Any())
+            {
+                <table class="table company-cars" id="cars">
+                    @foreach (var company in Model.Companies)
+                    {
+                        <thead>
+                            <tr>
+                                <th colspan="3">
+                                    @Html.DisplayFor(_ => company.Name) <br />
+                                    @Html.DisplayFor(_ => company.Address)
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (company.Cars.Any())
+                            {
+                                @foreach (var car in company.Cars)
+                                {
+                                    <tr id="@car.Id">
+                                        <td>@Html.DisplayFor(_ => car.VIN)</td>
+                                        <td>@Html.DisplayFor(_ => car.RegNr)</td>
+                                        <td class="@(!car.Online ? "alert-danger" : "")">@Html.DisplayFor(_ => car.OnlineOrOffline)</td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr><td colspan="3">No cars listed.</td></tr>
+                            }
+                        </tbody>
+                    }
+                </table>
+            }
+            else
+            {
+                <p>No companies found.</p>
+            }
+        </div>
+
+        <div class="col-lg-4">
+            <h3>Show vehicles with status:</h3>
+            <div>
+                <label><input type="radio" id="All" name="status" value="All" checked>All</label><br>
+                <label><input type="radio" id="Online" name="status" value="Online">Online</label><br>
+                <label><input type="radio" id="Offline" name="status" value="Offline">Offline</label>
+            </div>
+            <br>
+            <br>
+            <div class="container-fluid" id="jobss">
+                <div class="row dash">
+                    <div class="col-xs-8 col-sm-8">
+                        <h3>Jobs</h3>
+                    </div>
+                    <div class="col-xs-4 col-sm-4">
+                        <h3>Status</h3>
+                    </div>
+                </div>
+                @foreach (var job in Model.JobStateManager.GetAllJobs())
+                {
+                    <div class="row dash" data-status="@job.Value.Status">
+                        <div class="col-xs-4 col-sm-4">
+                            <img src="@Url.Content("~/images/" + job.Value.ImageName)" width="70" height="70" alt="@job.Value.ImageName" />
+                        </div>
+                        <div class="col-xs-4 col-sm-4 text-state">
+                            @job.Key
+                        </div>
+                        <div class="col-xs-4 col-sm-4" id="job_@job.Key">
+                            @if (job.Value.Status == JobStatus.Paused)
+                            {
+                                <span class="text-state">@job.Value.Status</span>
+                            }
+                            else
+                            {
+                                <div class="spinner-container">
+                                    <partial name="_Spinner" />
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <p class="alert-info">
+                All vehicles for all companies are shown here. Status (Offline/Online) randomly changes approximately every 10 seconds. A logged in user can manually change the status. To view and update vehicles and companies, create an account, log in and select the respective menu.
+                <br /><br />
+                If you press F12 and select "Console" you can see when the status changes for each car using Javascript in the browser.
+            </p>
+        </div>
+    </div>
+}
