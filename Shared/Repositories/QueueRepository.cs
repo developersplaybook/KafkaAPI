@@ -7,7 +7,7 @@ using Shared.Models;
 namespace Shared.Repositories;
 public class QueueRepository : IQueueRepository
 {
-    private readonly string _bootstrapServers = "localhost:9092";
+    private readonly string _bootstrapServers = "host.docker.internal:9092";
     private readonly string _clientQueueTopic = "client-queue";
     private readonly string _serverQueueTopic = "server-queue";
 
@@ -33,7 +33,14 @@ public class QueueRepository : IQueueRepository
 
     private async Task<int> ProduceMessageAsync(string topic, QueueEntity entity)
     {
-        var config = new ProducerConfig { BootstrapServers = _bootstrapServers };
+        var config = new ProducerConfig
+        {
+            BootstrapServers = _bootstrapServers,
+            Acks = Acks.Leader,  // Snabbare leverans
+            LingerMs = 5,        // Minska fördröjning innan meddelandet skickas
+            BatchNumMessages = 10 // Skickar i batchar
+        };
+
         using var producer = new ProducerBuilder<Null, string>(config).Build();
         var jsonMessage = JsonSerializer.Serialize(entity);
 
@@ -55,8 +62,15 @@ public class QueueRepository : IQueueRepository
         {
             BootstrapServers = _bootstrapServers,
             GroupId = "queue-group",
-            AutoOffsetReset = AutoOffsetReset.Earliest
+            AutoOffsetReset = AutoOffsetReset.Earliest,
+            GroupInstanceId = $"{((topic == _clientQueueTopic) ? _clientQueueTopic : _serverQueueTopic)}-{Environment.MachineName}",
+            EnableAutoCommit = false, // Viktigt för att hantera egna commits
+            AllowAutoCreateTopics = false, // Förhindra oväntad topic-skapande
+            MaxPollIntervalMs = 300000, // 5 minuter för att hantera långsam bearbetning
+            SessionTimeoutMs = 45000, // Standard timeout
+            EnablePartitionEof = true // Möjliggör EOF-hantering
         };
+
 
         using var consumer = new ConsumerBuilder<Ignore, string>(config).Build();
         consumer.Subscribe(topic);
@@ -65,15 +79,28 @@ public class QueueRepository : IQueueRepository
         {
             while (true)
             {
-                var consumeResult = consumer.Consume();
+                var consumeResult = consumer.Consume(TimeSpan.FromSeconds(1)); // Vänta 1 sekund
+
+                if (consumeResult?.Message==null)
+                {
+                    await Task.Delay(100);  // Vänta 100ms för att minska CPU-belastning
+                    continue;
+                }
+
                 var entity = JsonSerializer.Deserialize<QueueEntity>(consumeResult.Message.Value);
 
                 if (correlationId == null || entity?.CorrelationId == correlationId)
                 {
-                    consumer.Commit(consumeResult);
+                    consumer.Commit(consumeResult); // Manuell commit av offset
                     return entity;
                 }
             }
+        }
+        catch (KafkaException kafkaEx) when (kafkaEx.Error.IsFatal)
+        {
+            // If topic does not exist or another fatal error occurs, return null
+            Console.WriteLine($"Topic not found or fatal error: {kafkaEx.Message}");
+            return null;
         }
         catch (Exception ex)
         {
@@ -85,4 +112,5 @@ public class QueueRepository : IQueueRepository
             consumer.Close();
         }
     }
+
 }

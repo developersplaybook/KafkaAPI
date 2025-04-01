@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Hosting;
+﻿using Confluent.Kafka;
+using Confluent.Kafka.Admin;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,7 +12,9 @@ using Server.Interfaces;
 using Server.Services;
 using Shared.DAL;
 using Shared.Repositories;
+using System;
 using System.Globalization;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Server;
@@ -30,6 +35,8 @@ internal class Program
             scope.ServiceProvider.GetRequiredService<CarApiDbContext>().EnsureSeedData();
         }
 
+        await CreateTopic("client-queue");
+        await CreateTopic("server-queue");
         await app.RunAsync();
     }
 
@@ -51,7 +58,50 @@ internal class Program
 
                services.AddHostedService<MessageHubService>();
                services.AddTransient<IServerMessageHub, ServerMessageHub>();
+
+               // Lägg till Data Protection-konfigurationen för Server
+               services.AddDataProtection()
+                   .PersistKeysToFileSystem(new System.IO.DirectoryInfo(@"C:\DataProtection-Keys"));
            });
+    }
+
+    static async Task CreateTopic(string topic)
+    {
+        string bootstrapServers = "host.docker.internal:9092";
+
+        using (var adminClient = new AdminClientBuilder(new AdminClientConfig { BootstrapServers = bootstrapServers }).Build())
+        {
+            // 🔍 Kolla om topic redan finns
+            var metadata = adminClient.GetMetadata(TimeSpan.FromSeconds(5));
+            bool topicExists = metadata.Topics.Any(t => t.Topic == topic);
+
+            if (topicExists)
+            {
+                Console.WriteLine($"✅ Topic '{topic}' finns redan.");
+            }
+            else
+            {
+                Console.WriteLine($"⚠️ Topic '{topic}' saknas. Skapar den...");
+
+                // 🛠 Skapa topic
+                var topicSpecification = new TopicSpecification
+                {
+                    Name = topic,
+                    NumPartitions = 3,  // Antal partitioner
+                    ReplicationFactor = 1 // Replikationsfaktor
+                };
+
+                try
+                {
+                    await adminClient.CreateTopicsAsync(new[] { topicSpecification });
+                    Console.WriteLine($"✅ Topic '{topic}' skapades.");
+                }
+                catch (CreateTopicsException e)
+                {
+                    Console.WriteLine($"❌ Kunde inte skapa topic: {e.Results[0].Error.Reason}");
+                }
+            }
+        }
     }
 }
 
