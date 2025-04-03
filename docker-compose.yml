@@ -22,3 +22,18 @@ services:
       - "2181:2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
+  
+  control-center:
+    image: confluentinc/cp-enterprise-control-center:latest
+    container_name: control-center
+    ports:
+      - "9021:9021"
+    environment:
+      CONTROL_CENTER_KAFKA_BROKERCONNECT: kafka:9092
+      CONTROL_CENTER_ZOOKEEPER_CONNECT: zookeeper:2181
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: kafka:9092 
+      CONTROL_CENTER_REPLICATION_FACTOR: 1
+    depends_on:
+      - kafka
+      - zookeeper
+    entrypoint: /bin/sh -c "until nc -z kafka 9092; do echo 'Waiting for Kafka...'; sleep 5; done; until nc -z zookeeper 2181; do echo 'Waiting for Zookeeper...'; sleep 5; done; /etc/confluent/docker/run"

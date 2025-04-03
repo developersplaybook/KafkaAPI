@@ -1,9 +1,10 @@
-rem Det här skriptet ser till att Zookeeper och Kafka startas korrekt, även om containrarna inte redan finns. 
-rem Skriptet startar containrarna om de inte är igång och gör dem klara för användning.
+rem This script ensures that Zookeeper and Kafka start correctly, even if the containers do not already exist.
+rem The script starts the containers if they are not running and prepares them for use.
+
 @echo off
 echo Starting Kafka...
 
-:: Kontrollera om Kafka- och Zookeeper-containrarna finns
+:: Check if Kafka- and Zookeeper-containrarna exists
 docker ps -a --filter "name=zookeeper" --filter "name=kafka" >nul 2>&1
 IF %ERRORLEVEL% EQU 0 (
     echo Containers already exist, checking if they are running...
@@ -12,7 +13,7 @@ IF %ERRORLEVEL% EQU 0 (
     docker-compose -f docker-compose.yml up -d --build
 )
 
-:: Kontrollera om Zookeeper är igång
+:: Check if Zookeeper is running
 docker inspect --format '{{.State.Running}}' zookeeper >nul 2>&1
 IF %ERRORLEVEL% EQU 0 (
     echo Zookeeper is running.
@@ -21,7 +22,7 @@ IF %ERRORLEVEL% EQU 0 (
     docker-compose up -d zookeeper
 )
 
-:: Kontrollera om Kafka är igång
+:: Check if Kafka is running
 docker inspect --format '{{.State.Running}}' kafka >nul 2>&1
 IF %ERRORLEVEL% EQU 0 (
     echo Kafka is already running.
@@ -30,6 +31,17 @@ IF %ERRORLEVEL% EQU 0 (
     docker-compose up -d kafka 
 )
 
+:: Check if control-center is running
+docker inspect --format '{{.State.Running}}' control-center >nul 2>&1
+IF %ERRORLEVEL% EQU 0 (
+    echo control-center is already running.
+) ELSE (
+    echo Starting control-center...
+    docker-compose up -d control-center 
+)
+
+
+sleep 3
 echo docker Status...
 docker ps -a
 pause

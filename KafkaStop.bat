@@ -1,16 +1,16 @@
-rem Det här skriptet stoppar och tar bort Kafka- och Zookeeper-containrarna, samt eventuella resurser som inte längre behövs.
+rem This script stops and removes the Kafka and Zookeeper containers, as well as any resources that are no longer needed
 @echo off
 echo Stopping Kafka...
 
-:: Stopp och ta bort Kafka och Zookeeper containrar
+:: Stop and remove Kafka and Zookeeper containers
 docker-compose down
 
-:: Bekräfta att containrarna har stoppats och tagits bort
+:: Confirm that containers are stopped and removed
 docker ps -a --filter "name=zookeeper" --filter "name=kafka" >nul 2>&1
 IF %ERRORLEVEL% EQU 0 (
     echo Containers still exist. Stopping them.
-    docker stop zookeeper kafka
-    docker rm zookeeper kafka
+    docker stop zookeeper kafka control-center
+    docker rm zookeeper kafka control-center
 ) ELSE (
     echo Containers are already stopped and removed.
 )
