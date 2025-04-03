@@ -63,7 +63,7 @@ public class QueueRepository : IQueueRepository
             BootstrapServers = _bootstrapServers,
             GroupId = "queue-group",
             AutoOffsetReset = AutoOffsetReset.Earliest,
-            GroupInstanceId = $"{((topic == _clientQueueTopic) ? _clientQueueTopic : _serverQueueTopic)}-{Environment.MachineName}",
+            GroupInstanceId = (topic == _clientQueueTopic) ? _clientQueueTopic : _serverQueueTopic,
             EnableAutoCommit = false, // Viktigt för att hantera egna commits
             AllowAutoCreateTopics = false, // Förhindra oväntad topic-skapande
             MaxPollIntervalMs = 300000, // 5 minuter för att hantera långsam bearbetning
