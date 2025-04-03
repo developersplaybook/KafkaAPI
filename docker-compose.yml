@@ -9,9 +9,9 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://host.docker.internal:9092
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_NUM_PARTITIONS: 3    # Fler partitioner = Mer parallellism
-      KAFKA_LOG_RETENTION_HOURS: 1  # Rensa gamla meddelanden snabbare
-      KAFKA_COMPRESSION_TYPE: snappy # Snabbare transport
+      KAFKA_NUM_PARTITIONS: 3    # More partitions = More parallelism
+      KAFKA_LOG_RETENTION_HOURS: 1  # Clear old messages faster
+      KAFKA_COMPRESSION_TYPE: snappy # Faster transport
     depends_on:
       - zookeeper
 

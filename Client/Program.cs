@@ -43,7 +43,6 @@ public class Program
         builder.Services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlServer(builder.Configuration.GetConnectionString("ASPNETDbConnection")));
 
-
         builder.Services.AddTransient<ApplicationDbContext>();
         builder.Services.AddTransient<IdentityDbContext<ApplicationUser>>();
 
