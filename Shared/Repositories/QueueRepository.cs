@@ -36,9 +36,8 @@ public class QueueRepository : IQueueRepository
         var config = new ProducerConfig
         {
             BootstrapServers = _bootstrapServers,
-            Acks = Acks.Leader,  // Snabbare leverans
-            LingerMs = 5,        // Minska fördröjning innan meddelandet skickas
-            BatchNumMessages = 10 // Skickar i batchar
+            Acks = Acks.Leader,  // Fastest delivery with some risk of data loss
+            LingerMs = 0         // Ensure messages are sent immediately
         };
 
         using var producer = new ProducerBuilder<Null, string>(config).Build();
@@ -66,9 +65,7 @@ public class QueueRepository : IQueueRepository
             GroupInstanceId = (topic == _clientQueueTopic) ? _clientQueueTopic : _serverQueueTopic,
             EnableAutoCommit = false, // Viktigt för att hantera egna commits
             AllowAutoCreateTopics = false, // Förhindra oväntad topic-skapande
-            MaxPollIntervalMs = 300000, // 5 minuter för att hantera långsam bearbetning
             SessionTimeoutMs = 45000, // Standard timeout
-            EnablePartitionEof = true // Möjliggör EOF-hantering
         };
 
 
