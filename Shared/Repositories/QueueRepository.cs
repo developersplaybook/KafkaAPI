@@ -63,8 +63,8 @@ public class QueueRepository : IQueueRepository
             GroupId = "queue-group",
             AutoOffsetReset = AutoOffsetReset.Earliest,
             GroupInstanceId = (topic == _clientQueueTopic) ? _clientQueueTopic : _serverQueueTopic,
-            EnableAutoCommit = false, // Viktigt för att hantera egna commits
-            AllowAutoCreateTopics = false, // Förhindra oväntad topic-skapande
+            EnableAutoCommit = false,
+            AllowAutoCreateTopics = false,
             SessionTimeoutMs = 45000, // Standard timeout
         };
 
