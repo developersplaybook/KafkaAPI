@@ -6,7 +6,6 @@ using Client.Interfaces;
 using Client.Models;
 using Client.Services;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -17,7 +16,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
-using Shared.Repositories;
 using System.Globalization;
 using System.Threading.Tasks;
 
@@ -35,10 +33,6 @@ public class Program
           .AddJsonFile("appsettings.json");
 
         builder.Logging.AddConsole();
-
-        // Lägg till Data Protection-konfigurationen för Client
-        builder.Services.AddDataProtection()
-            .PersistKeysToFileSystem(new System.IO.DirectoryInfo(@"C:\DataProtection-Keys"));
 
         builder.Services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlServer(builder.Configuration.GetConnectionString("ASPNETDbConnection")));
@@ -74,7 +68,7 @@ public class Program
         builder.Services.AddAuthentication();
         builder.Services.AddAuthorization();
 
-        builder.Services.AddTransient<IQueueRepository, QueueRepository>();
+        builder.Services.AddSingleton<IClientHubQueueRepository, ClientQueueRepository>();
         builder.Services.AddTransient<IClientMessageHub, ClientMessageHub>();
         builder.Services.AddSingleton<JobStatusManager>();
         var app = builder.Build();

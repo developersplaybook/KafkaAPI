@@ -54,7 +54,7 @@ internal class Program
 
                services.AddTransient<ICarRepository, CarRepository>();
                services.AddTransient<ICompanyRepository, CompanyRepository>();
-               services.AddTransient<IQueueRepository, QueueRepository>();
+               services.AddSingleton<IServerHubQueueRepository, ServerQueueRepository>();
 
                services.AddHostedService<MessageHubService>();
                services.AddTransient<IServerMessageHub, ServerMessageHub>();

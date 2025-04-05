@@ -1,19 +1,35 @@
-﻿using System;
+﻿using Confluent.Kafka;
+using Server.Interfaces;
+using Shared.Models;
+using System;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Confluent.Kafka;
-using Shared.Models;
 
-namespace Shared.Repositories;
-public class QueueRepository : IQueueRepository
+namespace Server.Hub;
+public class ServerQueueRepository : IServerHubQueueRepository, IDisposable
 {
     private readonly string _bootstrapServers = "host.docker.internal:9092";
     private readonly string _clientQueueTopic = "client-queue";
     private readonly string _serverQueueTopic = "server-queue";
+    private readonly IConsumer<Ignore, string> _consumer;
 
-    public async Task<int> AddClientQueueItemAsync(QueueEntity entity)
+    public ServerQueueRepository()
     {
-        return await ProduceMessageAsync(_clientQueueTopic, entity);
+        var config = new ConsumerConfig
+        {
+            BootstrapServers = _bootstrapServers,
+            GroupId = "queue-group",
+            GroupInstanceId = "serverGroupInstanceId",
+            AutoOffsetReset = AutoOffsetReset.Earliest,
+            EnableAutoCommit = false,
+            AllowAutoCreateTopics = false,
+            MaxPollIntervalMs = 300000,
+            SessionTimeoutMs = 45000,
+            EnablePartitionEof = true
+        };
+
+        _consumer = new ConsumerBuilder<Ignore, string>(config).Build();
+        _consumer.Subscribe(_clientQueueTopic);
     }
 
     public async Task<int> AddServerQueueItemAsync(QueueEntity entity)
@@ -24,11 +40,6 @@ public class QueueRepository : IQueueRepository
     public async Task<QueueEntity?> GetMessageFromClientQueueAsync()
     {
         return await ConsumeMessageAsync(_clientQueueTopic);
-    }
-
-    public async Task<QueueEntity?> GetMessageFromServerByCorrelationIdAsync(Guid correlationId)
-    {
-        return await ConsumeMessageAsync(_serverQueueTopic, correlationId);
     }
 
     private async Task<int> ProduceMessageAsync(string topic, QueueEntity entity)
@@ -56,44 +67,23 @@ public class QueueRepository : IQueueRepository
         }
     }
 
-    private async Task<QueueEntity?> ConsumeMessageAsync(string topic, Guid? correlationId = null)
+    private async Task<QueueEntity?> ConsumeMessageAsync(string topic)
     {
-        var config = new ConsumerConfig
-        {
-            BootstrapServers = _bootstrapServers,
-            GroupId = "queue-group",
-            AutoOffsetReset = AutoOffsetReset.Earliest,
-            GroupInstanceId = (topic == _clientQueueTopic) ? _clientQueueTopic : _serverQueueTopic,
-            EnableAutoCommit = false, // Viktigt för att hantera egna commits
-            AllowAutoCreateTopics = false, // Förhindra oväntad topic-skapande
-            MaxPollIntervalMs = 300000, // 5 minuter för att hantera långsam bearbetning
-            SessionTimeoutMs = 45000, // Standard timeout
-            EnablePartitionEof = true // Möjliggör EOF-hantering
-        };
-
-
-        using var consumer = new ConsumerBuilder<Ignore, string>(config).Build();
-        consumer.Subscribe(topic);
-
         try
         {
             while (true)
             {
-                var consumeResult = consumer.Consume(TimeSpan.FromSeconds(1)); // Vänta 1 sekund
+                var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(1)); // Vänta 1 sekund
 
-                if (consumeResult?.Message==null)
+                if (consumeResult?.Message == null)
                 {
                     await Task.Delay(100);  // Vänta 100ms för att minska CPU-belastning
                     continue;
                 }
 
                 var entity = JsonSerializer.Deserialize<QueueEntity>(consumeResult.Message.Value);
-
-                if (correlationId == null || entity?.CorrelationId == correlationId)
-                {
-                    consumer.Commit(consumeResult); // Manuell commit av offset
-                    return entity;
-                }
+                _consumer.Commit(consumeResult); // Manuell commit av offset
+                return entity;
             }
         }
         catch (KafkaException kafkaEx) when (kafkaEx.Error.IsFatal)
@@ -107,10 +97,11 @@ public class QueueRepository : IQueueRepository
             Console.WriteLine($"Consuming message failed: {ex.Message}");
             return null;
         }
-        finally
-        {
-            consumer.Close();
-        }
     }
 
+    public void Dispose()
+    {
+        _consumer.Close();
+        _consumer.Dispose();
+    }
 }
