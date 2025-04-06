@@ -60,16 +60,14 @@ public class ServerQueueRepository : IServerHubQueueRepository, IDisposable
             if (_receivedMessages.Count > 0)
             {
                 var match = _receivedMessages.FirstOrDefault();
-
-                if (match == null)
+                if (match != null)
                 {
-                    continue;
-                }
-
-                _receivedMessages.Remove(match);
-                return match;
+                    _receivedMessages.Remove(match);
+                    return match;
+                };
             }
-            await Task.Delay(100); // Vänta lite innan vi kollar igen
+
+            await Task.Delay(100);
         }
     }
 
@@ -104,19 +102,22 @@ public class ServerQueueRepository : IServerHubQueueRepository, IDisposable
         {
             while (_pendingCalls.Count > 0)
             {
-                var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(1));
-
-                if (consumeResult?.Message == null)
+                foreach (var currentId in _pendingCalls)
                 {
-                    await Task.Delay(100);
-                    continue;
+                    var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(1));
+
+                    if (consumeResult?.Message == null)
+                    {
+                        await Task.Delay(100);
+                        continue;
+                    }
+
+                    var entity = JsonSerializer.Deserialize<QueueEntity>(consumeResult.Message.Value);
+
+                    _consumer.Commit(consumeResult);
+                    _receivedMessages.Add(entity);
+                    _pendingCalls.Dequeue(); // Klar, ta nästa
                 }
-
-                var entity = JsonSerializer.Deserialize<QueueEntity>(consumeResult.Message.Value);
-
-                _consumer.Commit(consumeResult);
-                _receivedMessages.Add(entity);
-                _pendingCalls.Dequeue(); // Klar, ta nästa
             }
         }
         catch (Exception ex)

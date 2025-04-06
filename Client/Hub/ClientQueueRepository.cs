@@ -104,13 +104,15 @@ public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
         {
             while (_pendingCorrelationIds.Count > 0)
             {
-                var currentId = _pendingCorrelationIds.Peek();
+                // Dequeue the next CorrelationId to check
+                var currentId = _pendingCorrelationIds.Dequeue();
 
                 var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(1));
 
                 if (consumeResult?.Message == null)
                 {
-                    await Task.Delay(100);
+                    await Task.Delay(100);  // Wait briefly before trying again
+                    _pendingCorrelationIds.Enqueue(currentId);  // Re-enqueue the currentId if not processed yet
                     continue;
                 }
 
@@ -120,14 +122,16 @@ public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
                 {
                     _consumer.Commit(consumeResult);
                     _receivedMessages.Add(entity);
-                    _pendingCorrelationIds.Dequeue(); // Klar, ta nästa
+                    // ID is processed and removed (already dequeued, so nothing further to do)
                 }
                 else
                 {
-                    // Skippa om det inte är rätt correlationId ännu
-                    Console.WriteLine($"Skippar meddelande med ID {entity?.CorrelationId}");
+                    // Re-enqueue currentId since the message didn't match yet
+                    Console.WriteLine($"Skipping message with ID {entity?.CorrelationId}");
+                    _pendingCorrelationIds.Enqueue(currentId);
                 }
             }
+
         }
         catch (Exception ex)
         {
