@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Server.Hub;
@@ -15,7 +16,10 @@ public class ServerQueueRepository : IServerHubQueueRepository, IDisposable
     private readonly string _serverQueueTopic = "server-queue";
 
     private readonly List<QueueEntity> _receivedMessages = new(); // Enkel buffert
-    private bool _isConsuming;
+    private static readonly SemaphoreSlim _semaphore = new(1, 1);
+    private static int _isConsuming = 0;
+    private readonly CancellationTokenSource _cts = new();
+    private static readonly object _lock = new(); // För att skydda _receivedMessages
 
     private readonly IConsumer<Ignore, string> _consumer;
 
@@ -45,27 +49,40 @@ public class ServerQueueRepository : IServerHubQueueRepository, IDisposable
 
     public async Task<QueueEntity?> GetMessageFromClientQueueAsync()
     {
-        if (!_isConsuming)
+        // Starta konsumtion om den inte redan pågår
+        if (Interlocked.CompareExchange(ref _isConsuming, 1, 0) == 0)
         {
-            _isConsuming = true;
             _ = Task.Run(() => ConsumeLoopAsync());
         }
 
-        while (true)
+        await _semaphore.WaitAsync();
+        try
         {
-            if (_receivedMessages.Count == 0)
+            while (true)
             {
-                Task.Delay(10).Wait();
-                continue;
-            }
+                if (_receivedMessages.Count == 0)
+                {
+                    Task.Delay(10).Wait();
+                    continue;
+                }
 
-            var match = _receivedMessages.FirstOrDefault();
-            if (match != null)
-            {
-                // Ta bort meddelandet från listan när det matchas
-                _receivedMessages.Remove(match);
-                return match;
+                var match = _receivedMessages.FirstOrDefault();
+                if (match != null)
+                {
+                    // Ta bort meddelandet från listan när det matchas
+                    _receivedMessages.Remove(match);
+                    return match;
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"GetMessageFromClientQueueAsync failed: {ex.Message}");
+            return null;
+        }
+        finally
+        {
+            _semaphore.Release();
         }
     }
 
@@ -73,23 +90,29 @@ public class ServerQueueRepository : IServerHubQueueRepository, IDisposable
     {
         try
         {
-            while (true) // Oändlig loop för att kontinuerligt konsumera meddelanden
+            while (!_cts.Token.IsCancellationRequested)
             {
                 var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(1));
 
                 if (consumeResult?.Message == null)
                 {
-                    await Task.Delay(10); // Vänta kort innan vi försöker igen
+                    await Task.Delay(10, _cts.Token);
                     continue;
                 }
 
                 var entity = JsonSerializer.Deserialize<QueueEntity>(consumeResult.Message.Value);
 
-                // Lägg till meddelandet i _receivedMessages om det finns
-                _receivedMessages.Add(entity);
+                lock (_lock)
+                {
+                    _receivedMessages.Add(entity);
+                }
 
                 _consumer.Commit(consumeResult); // Bekräfta meddelandet
             }
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("Consume loop cancelled.");
         }
         catch (Exception ex)
         {

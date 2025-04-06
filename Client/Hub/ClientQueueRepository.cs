@@ -3,10 +3,10 @@ using Confluent.Kafka;
 using Shared.Models;
 using System;
 using System.Collections.Generic;
-using System.Text.Json;
-using System.Threading.Tasks;
 using System.Linq;
-using System.Diagnostics;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Client.Hub;
 public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
@@ -16,7 +16,10 @@ public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
     private readonly string _serverQueueTopic = "server-queue";
 
     private readonly List<QueueEntity> _receivedMessages = new(); // Enkel buffert
-    private bool _isConsuming;
+    private static readonly SemaphoreSlim _semaphore = new(1, 1);
+    private static int _isConsuming = 0;
+    private readonly CancellationTokenSource _cts = new();
+    private static readonly object _lock = new(); // För att skydda _receivedMessages
 
     private readonly IConsumer<Ignore, string> _consumer;
 
@@ -47,28 +50,40 @@ public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
     public async Task<QueueEntity?> GetMessageFromServerByCorrelationIdAsync(Guid correlationId)
     {
         // Starta konsumtion om den inte redan pågår
-        if (!_isConsuming)
+        if (Interlocked.CompareExchange(ref _isConsuming, 1, 0) == 0)
         {
-            _isConsuming = true;
-            _ = Task.Run(() => ConsumeLoopAsync()); // Starta bakgrundsprocessen för konsumtion
+            _ = Task.Run(() => ConsumeLoopAsync());
         }
 
-        // Vänta tills meddelandet finns i _receivedMessages
-        while (true)
+        await _semaphore.WaitAsync();
+        try
         {
-            if (_receivedMessages.Count == 0)
+            // Vänta tills meddelandet finns i _receivedMessages
+            while (true)
             {
-                Task.Delay(10).Wait();
-                continue;
-            }
+                if (_receivedMessages.Count == 0)
+                {
+                    Task.Delay(10).Wait();
+                    continue;
+                }
 
-            var match = _receivedMessages.FirstOrDefault(x => x.CorrelationId == correlationId);
-            if (match != null)
-            {
-                // Ta bort meddelandet från listan när det matchas
-                _receivedMessages.Remove(match);
-                return match;
+                var match = _receivedMessages.FirstOrDefault(x => x?.CorrelationId == correlationId);
+                if (match != null)
+                {
+                    // Ta bort meddelandet från listan när det matchas
+                    _receivedMessages.Remove(match);
+                    return match;
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"GetMessageFromServerByCorrelationIdAsync failed: {ex.Message}");
+            return null;
+        }
+        finally
+        {
+            _semaphore.Release();
         }
     }
 
@@ -76,30 +91,45 @@ public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
     {
         try
         {
-            while (true) // Oändlig loop för att kontinuerligt konsumera meddelanden
+            while (!_cts.Token.IsCancellationRequested)
             {
                 var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(1));
 
                 if (consumeResult?.Message == null)
                 {
-                    await Task.Delay(10); // Vänta kort innan vi försöker igen
+                    await Task.Delay(10, _cts.Token);
                     continue;
                 }
 
-                var entity = JsonSerializer.Deserialize<QueueEntity>(consumeResult.Message.Value);
+                try
+                {
+                    var entity = JsonSerializer.Deserialize<QueueEntity>(consumeResult.Message.Value);
+                    if (entity != null)
+                    {
+                        lock (_lock)
+                        {
+                            _receivedMessages.Add(entity);
+                        }
+                    }
 
-                // Lägg till meddelandet i _receivedMessages om det finns
-                _receivedMessages.Add(entity);
-
-                _consumer.Commit(consumeResult); // Bekräfta meddelandet
+                    _consumer.Commit(consumeResult); // Bekräfta meddelandet
+                }
+                catch (JsonException jex)
+                {
+                    Console.WriteLine($"JSON parse error: {jex.Message}");
+                    // Här kan du logga/skicka till "dead letter queue" eller liknande
+                }
             }
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("Consume loop cancelled.");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Consume loop error: {ex.Message}");
         }
     }
-
 
     private async Task<int> ProduceMessageAsync(string topic, QueueEntity entity)
     {
