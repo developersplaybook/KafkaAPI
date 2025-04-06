@@ -15,7 +15,6 @@ public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
     private readonly string _clientQueueTopic = "client-queue";
     private readonly string _serverQueueTopic = "server-queue";
 
-    private readonly Queue<Guid> _pendingCorrelationIds = new();
     private readonly List<QueueEntity> _receivedMessages = new(); // Enkel buffert
     private bool _isConsuming;
 
@@ -47,31 +46,60 @@ public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
 
     public async Task<QueueEntity?> GetMessageFromServerByCorrelationIdAsync(Guid correlationId)
     {
-        Console.WriteLine($"_isConsuming: {_isConsuming}, _pendingCorrelationIds.Count: {_pendingCorrelationIds.Count}, _receivedMessages.Count: {_receivedMessages.Count}");
-        _pendingCorrelationIds.Enqueue(correlationId);
-
+        // Starta konsumtion om den inte redan pågår
         if (!_isConsuming)
         {
             _isConsuming = true;
-            _ = Task.Run(() => ConsumeLoopAsync());
+            _ = Task.Run(() => ConsumeLoopAsync()); // Starta bakgrundsprocessen för konsumtion
         }
 
-        // Vänta tills meddelandet kommer tillbaka
+        // Vänta tills meddelandet finns i _receivedMessages
         while (true)
         {
-            if (_receivedMessages.Count>0)
+            if (_receivedMessages.Count == 0)
             {
-                var match = _receivedMessages.FirstOrDefault(x => x.CorrelationId == correlationId);
-                if (match != null)
-                {
-                    _receivedMessages.Remove(match);
-                    return match;
-                }
+                Task.Delay(10).Wait();
+                continue;
             }
 
-            await Task.Delay(100);
+            var match = _receivedMessages.FirstOrDefault(x => x.CorrelationId == correlationId);
+            if (match != null)
+            {
+                // Ta bort meddelandet från listan när det matchas
+                _receivedMessages.Remove(match);
+                return match;
+            }
         }
     }
+
+    private async Task ConsumeLoopAsync()
+    {
+        try
+        {
+            while (true) // Oändlig loop för att kontinuerligt konsumera meddelanden
+            {
+                var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(1));
+
+                if (consumeResult?.Message == null)
+                {
+                    await Task.Delay(10); // Vänta kort innan vi försöker igen
+                    continue;
+                }
+
+                var entity = JsonSerializer.Deserialize<QueueEntity>(consumeResult.Message.Value);
+
+                // Lägg till meddelandet i _receivedMessages om det finns
+                _receivedMessages.Add(entity);
+
+                _consumer.Commit(consumeResult); // Bekräfta meddelandet
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Consume loop error: {ex.Message}");
+        }
+    }
+
 
     private async Task<int> ProduceMessageAsync(string topic, QueueEntity entity)
     {
@@ -95,51 +123,6 @@ public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
         {
             Console.WriteLine($"Producing message failed: {ex.Message}");
             return 0;
-        }
-    }
-
-    private async Task ConsumeLoopAsync()
-    {
-        try
-        {
-            while (_pendingCorrelationIds.Count > 0)
-            {
-                // Dequeue the next CorrelationId to check
-                var currentId = _pendingCorrelationIds.Dequeue();
-
-                var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(1));
-
-                if (consumeResult?.Message == null)
-                {
-                    await Task.Delay(100);  // Wait briefly before trying again
-                    _pendingCorrelationIds.Enqueue(currentId);  // Re-enqueue the currentId if not processed yet
-                    continue;
-                }
-
-                var entity = JsonSerializer.Deserialize<QueueEntity>(consumeResult.Message.Value);
-
-                if (entity?.CorrelationId == currentId)
-                {
-                    _consumer.Commit(consumeResult);
-                    _receivedMessages.Add(entity);
-                    // ID is processed and removed (already dequeued, so nothing further to do)
-                }
-                else
-                {
-                    // Re-enqueue currentId since the message didn't match yet
-                    Console.WriteLine($"Skipping message with ID {entity?.CorrelationId}");
-                    _pendingCorrelationIds.Enqueue(currentId);
-                }
-            }
-
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Consume loop error: {ex.Message}");
-        }
-        finally
-        {
-            _isConsuming = false;
         }
     }
 

@@ -14,7 +14,6 @@ public class ServerQueueRepository : IServerHubQueueRepository, IDisposable
     private readonly string _clientQueueTopic = "client-queue";
     private readonly string _serverQueueTopic = "server-queue";
 
-    private readonly Queue<Guid> _pendingCalls = new();
     private readonly List<QueueEntity> _receivedMessages = new(); // Enkel buffert
     private bool _isConsuming;
 
@@ -46,28 +45,55 @@ public class ServerQueueRepository : IServerHubQueueRepository, IDisposable
 
     public async Task<QueueEntity?> GetMessageFromClientQueueAsync()
     {
-        _pendingCalls.Enqueue(Guid.NewGuid());
-
         if (!_isConsuming)
         {
             _isConsuming = true;
             _ = Task.Run(() => ConsumeLoopAsync());
         }
 
-        // Vänta tills meddelandet kommer tillbaka
         while (true)
         {
-            if (_receivedMessages.Count > 0)
+            if (_receivedMessages.Count == 0)
             {
-                var match = _receivedMessages.FirstOrDefault();
-                if (match != null)
-                {
-                    _receivedMessages.Remove(match);
-                    return match;
-                };
+                Task.Delay(10).Wait();
+                continue;
             }
 
-            await Task.Delay(100);
+            var match = _receivedMessages.FirstOrDefault();
+            if (match != null)
+            {
+                // Ta bort meddelandet från listan när det matchas
+                _receivedMessages.Remove(match);
+                return match;
+            }
+        }
+    }
+
+    private async Task ConsumeLoopAsync()
+    {
+        try
+        {
+            while (true) // Oändlig loop för att kontinuerligt konsumera meddelanden
+            {
+                var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(1));
+
+                if (consumeResult?.Message == null)
+                {
+                    await Task.Delay(10); // Vänta kort innan vi försöker igen
+                    continue;
+                }
+
+                var entity = JsonSerializer.Deserialize<QueueEntity>(consumeResult.Message.Value);
+
+                // Lägg till meddelandet i _receivedMessages om det finns
+                _receivedMessages.Add(entity);
+
+                _consumer.Commit(consumeResult); // Bekräfta meddelandet
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Consume loop error: {ex.Message}");
         }
     }
 
@@ -93,40 +119,6 @@ public class ServerQueueRepository : IServerHubQueueRepository, IDisposable
         {
             Console.WriteLine($"Producing message failed: {ex.Message}");
             return 0;
-        }
-    }
-
-    private async Task ConsumeLoopAsync()
-    {
-        try
-        {
-            while (_pendingCalls.Count > 0)
-            {
-                foreach (var currentId in _pendingCalls)
-                {
-                    var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(1));
-
-                    if (consumeResult?.Message == null)
-                    {
-                        await Task.Delay(100);
-                        continue;
-                    }
-
-                    var entity = JsonSerializer.Deserialize<QueueEntity>(consumeResult.Message.Value);
-
-                    _consumer.Commit(consumeResult);
-                    _receivedMessages.Add(entity);
-                    _pendingCalls.Dequeue(); // Klar, ta nästa
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Consume loop error: {ex.Message}");
-        }
-        finally
-        {
-            _isConsuming = false;
         }
     }
 
