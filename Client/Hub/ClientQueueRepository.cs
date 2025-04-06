@@ -2,8 +2,11 @@
 using Confluent.Kafka;
 using Shared.Models;
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Linq;
+using System.Diagnostics;
 
 namespace Client.Hub;
 public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
@@ -11,6 +14,11 @@ public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
     private readonly string _bootstrapServers = "host.docker.internal:9092";
     private readonly string _clientQueueTopic = "client-queue";
     private readonly string _serverQueueTopic = "server-queue";
+
+    private readonly Queue<Guid> _pendingCorrelationIds = new();
+    private readonly List<QueueEntity> _receivedMessages = new(); // Enkel buffert
+    private bool _isConsuming;
+
     private readonly IConsumer<Ignore, string> _consumer;
 
     public ClientQueueRepository()
@@ -39,7 +47,30 @@ public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
 
     public async Task<QueueEntity?> GetMessageFromServerByCorrelationIdAsync(Guid correlationId)
     {
-        return await ConsumeMessageAsync(_serverQueueTopic, correlationId);
+        Console.WriteLine($"_isConsuming: {_isConsuming}, _pendingCorrelationIds.Count: {_pendingCorrelationIds.Count}, _receivedMessages.Count: {_receivedMessages.Count}");
+        _pendingCorrelationIds.Enqueue(correlationId);
+
+        if (!_isConsuming)
+        {
+            _isConsuming = true;
+            _ = Task.Run(() => ConsumeLoopAsync());
+        }
+
+        // Vänta tills meddelandet kommer tillbaka
+        while (true)
+        {
+            if (_receivedMessages.Count>0)
+            {
+                var match = _receivedMessages.FirstOrDefault(x => x.CorrelationId == correlationId);
+                if (match != null)
+                {
+                    _receivedMessages.Remove(match);
+                    return match;
+                }
+            }
+
+            await Task.Delay(100);
+        }
     }
 
     private async Task<int> ProduceMessageAsync(string topic, QueueEntity entity)
@@ -67,41 +98,47 @@ public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
         }
     }
 
-    private async Task<QueueEntity?> ConsumeMessageAsync(string topic, Guid? correlationId)
+    private async Task ConsumeLoopAsync()
     {
         try
         {
-            while (true)
+            while (_pendingCorrelationIds.Count > 0)
             {
-                var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(1)); // Vänta 1 sekund
+                var currentId = _pendingCorrelationIds.Peek();
 
-                if (consumeResult?.Message==null)
+                var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(1));
+
+                if (consumeResult?.Message == null)
                 {
-                    await Task.Delay(100);  // Vänta 100ms för att minska CPU-belastning
+                    await Task.Delay(100);
                     continue;
                 }
 
                 var entity = JsonSerializer.Deserialize<QueueEntity>(consumeResult.Message.Value);
 
-                if (entity?.CorrelationId == correlationId)
+                if (entity?.CorrelationId == currentId)
                 {
-                    _consumer.Commit(consumeResult); // Manuell commit av offset
-                    return entity;
+                    _consumer.Commit(consumeResult);
+                    _receivedMessages.Add(entity);
+                    _pendingCorrelationIds.Dequeue(); // Klar, ta nästa
+                }
+                else
+                {
+                    // Skippa om det inte är rätt correlationId ännu
+                    Console.WriteLine($"Skippar meddelande med ID {entity?.CorrelationId}");
                 }
             }
         }
-        catch (KafkaException kafkaEx) when (kafkaEx.Error.IsFatal)
-        {
-            // If topic does not exist or another fatal error occurs, return null
-            Console.WriteLine($"Topic not found or fatal error: {kafkaEx.Message}");
-            return null;
-        }
         catch (Exception ex)
         {
-            Console.WriteLine($"Consuming message failed: {ex.Message}");
-            return null;
+            Console.WriteLine($"Consume loop error: {ex.Message}");
+        }
+        finally
+        {
+            _isConsuming = false;
         }
     }
+
     public void Dispose()
     {
         _consumer.Close();
