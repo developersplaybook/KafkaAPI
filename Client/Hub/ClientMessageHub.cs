@@ -1,5 +1,6 @@
 ﻿using Client.Interfaces;
 using Shared.Helpers;
+using Shared.Interfaces;
 using Shared.Models;
 using System;
 using System.Threading.Tasks;
@@ -8,9 +9,9 @@ namespace Client.Hub
 {
     public class ClientMessageHub : IClientMessageHub
     {       
-        private readonly IClientHubQueueRepository _queueRepository;
+        private readonly IClientQueueRepository _queueRepository;
 
-        public ClientMessageHub(IClientHubQueueRepository queueRepository)
+        public ClientMessageHub(IClientQueueRepository queueRepository)
         {
             _queueRepository = queueRepository;
         }

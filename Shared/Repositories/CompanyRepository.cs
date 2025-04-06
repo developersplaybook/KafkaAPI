@@ -6,10 +6,11 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using System.Threading;
+using Shared.Interfaces;
 
 namespace Shared.Repositories
 {
-  public class CompanyRepository : ICompanyRepository
+    public class CompanyRepository : ICompanyRepository
   {
     private readonly CarApiDbContext _context;
     private readonly SemaphoreSlim _asyncLock = new(1, 1);

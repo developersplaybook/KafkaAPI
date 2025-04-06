@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Shared.Repositories
+namespace Shared.Interfaces
 {
     public interface ICompanyRepository
     {

@@ -1,10 +1,9 @@
 ﻿using Shared.Models;
 using System.Threading.Tasks;
-using System;
 
-namespace Server.Interfaces
+namespace Shared.Interfaces
 {
-    public interface IServerHubQueueRepository
+    public interface IServerQueueRepository
     {
         Task<QueueEntity?> GetMessageFromClientQueueAsync();
         Task<int> AddServerQueueItemAsync(QueueEntity entity);

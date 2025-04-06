@@ -1,6 +1,5 @@
 ﻿using Confluent.Kafka;
 using Confluent.Kafka.Admin;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -11,6 +10,7 @@ using Server.Hub;
 using Server.Interfaces;
 using Server.Services;
 using Shared.DAL;
+using Shared.Interfaces;
 using Shared.Repositories;
 using System;
 using System.Globalization;
@@ -54,14 +54,10 @@ internal class Program
 
                services.AddTransient<ICarRepository, CarRepository>();
                services.AddTransient<ICompanyRepository, CompanyRepository>();
-               services.AddSingleton<IServerHubQueueRepository, ServerQueueRepository>();
+               services.AddSingleton<IServerQueueRepository, ServerQueueRepository>();
 
                services.AddHostedService<MessageHubService>();
                services.AddTransient<IServerMessageHub, ServerMessageHub>();
-
-               // Lägg till Data Protection-konfigurationen för Server
-               services.AddDataProtection()
-                   .PersistKeysToFileSystem(new System.IO.DirectoryInfo(@"C:\DataProtection-Keys"));
            });
     }
 

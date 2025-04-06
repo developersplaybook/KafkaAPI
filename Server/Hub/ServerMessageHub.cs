@@ -1,8 +1,8 @@
 ﻿using Newtonsoft.Json;
 using Server.Interfaces;
+using Shared.Interfaces;
 using Shared.Helpers;
 using Shared.Models;
-using Shared.Repositories;
 using Shared.Requests;
 using Shared.Responses;
 using System;
@@ -13,11 +13,11 @@ namespace Server.Hub
 {
     public class ServerMessageHub : IServerMessageHub
     {
-        private readonly IServerHubQueueRepository _queueRepository;
+        private readonly IServerQueueRepository _queueRepository;
         private readonly ICompanyRepository _companyRepository;
         private readonly ICarRepository _carRepository;
 
-        public ServerMessageHub(IServerHubQueueRepository queueRepository, ICompanyRepository companyRepository, ICarRepository carRepository)
+        public ServerMessageHub(IServerQueueRepository queueRepository, ICompanyRepository companyRepository, ICarRepository carRepository)
         {
             _queueRepository = queueRepository;
             _companyRepository = companyRepository;

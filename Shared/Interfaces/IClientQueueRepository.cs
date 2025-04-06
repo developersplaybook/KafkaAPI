@@ -2,9 +2,9 @@
 using System.Threading.Tasks;
 using System;
 
-namespace Client.Interfaces
+namespace Shared.Interfaces
 {
-    public interface IClientHubQueueRepository
+    public interface IClientQueueRepository
     {
         Task<QueueEntity?> GetMessageFromServerByCorrelationIdAsync(Guid correlationId);
         Task<int> AddClientQueueItemAsync(QueueEntity entity);

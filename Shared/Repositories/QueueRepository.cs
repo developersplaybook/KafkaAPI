@@ -1,5 +1,5 @@
-﻿using Client.Interfaces;
-using Confluent.Kafka;
+﻿using Confluent.Kafka;
+using Shared.Interfaces;
 using Shared.Models;
 using System;
 using System.Collections.Generic;
@@ -8,24 +8,24 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Client.Hub;
-public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
+namespace Shared.Repositories;
+public class QueueRepository : IClientQueueRepository, IDisposable
 {
     private readonly string _bootstrapServers = "host.docker.internal:9092";
     private readonly string _clientQueueTopic = "client-queue";
     private readonly string _serverQueueTopic = "server-queue";
 
-    private readonly List<QueueEntity> _receivedMessages = new(); // Enkel buffert
-    private static readonly SemaphoreSlim _semaphore = new(1, 1);
-    private static int _isConsuming = 0;
-    private readonly CancellationTokenSource _cts = new();
-    private static readonly object _lock = new(); // För att skydda _receivedMessages
+    private readonly List<QueueEntity> _receivedClientMessages = new(); // Enkel buffert
+    private static readonly SemaphoreSlim _clientSemaphore = new(1, 1);
+    private static int _isClientConsuming = 0;
+    private readonly CancellationTokenSource _clientCts = new();
+    private static readonly object _clientLock = new(); // För att skydda _receivedMessages
 
-    private readonly IConsumer<Ignore, string> _consumer;
+    private readonly IConsumer<Ignore, string> _clientConsumer;
 
-    public ClientQueueRepository()
+    public QueueRepository()
     {
-        var config = new ConsumerConfig
+        var clientConfig = new ConsumerConfig
         {
             BootstrapServers = "host.docker.internal:9092",
             GroupId = "queue-group",
@@ -38,40 +38,40 @@ public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
             EnablePartitionEof = true
         };
 
-        _consumer = new ConsumerBuilder<Ignore, string>(config).Build();
-        _consumer.Subscribe(_serverQueueTopic);
+        _clientConsumer = new ConsumerBuilder<Ignore, string>(clientConfig).Build();
+        _clientConsumer.Subscribe(_serverQueueTopic);
     }
 
     public async Task<int> AddClientQueueItemAsync(QueueEntity entity)
     {
-        return await ProduceMessageAsync(_clientQueueTopic, entity);
+        return await ProduceClientMessageAsync(entity);
     }
 
     public async Task<QueueEntity?> GetMessageFromServerByCorrelationIdAsync(Guid correlationId)
     {
         // Starta konsumtion om den inte redan pågår
-        if (Interlocked.CompareExchange(ref _isConsuming, 1, 0) == 0)
+        if (Interlocked.CompareExchange(ref _isClientConsuming, 1, 0) == 0)
         {
-            _ = Task.Run(() => ConsumeLoopAsync());
+            _ = Task.Run(() => ConsumeClientLoopAsync());
         }
 
-        await _semaphore.WaitAsync();
+        await _clientSemaphore.WaitAsync();
         try
         {
             // Vänta tills meddelandet finns i _receivedMessages
             while (true)
             {
-                if (_receivedMessages.Count == 0)
+                if (_receivedClientMessages.Count == 0)
                 {
                     Task.Delay(10).Wait();
                     continue;
                 }
 
-                var match = _receivedMessages.FirstOrDefault(x => x?.CorrelationId == correlationId);
+                var match = _receivedClientMessages.FirstOrDefault(x => x?.CorrelationId == correlationId);
                 if (match != null)
                 {
                     // Ta bort meddelandet från listan när det matchas
-                    _receivedMessages.Remove(match);
+                    _receivedClientMessages.Remove(match);
                     return match;
                 }
             }
@@ -83,21 +83,21 @@ public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
         }
         finally
         {
-            _semaphore.Release();
+            _clientSemaphore.Release();
         }
     }
 
-    private async Task ConsumeLoopAsync()
+    private async Task ConsumeClientLoopAsync()
     {
         try
         {
-            while (!_cts.Token.IsCancellationRequested)
+            while (!_clientCts.Token.IsCancellationRequested)
             {
-                var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(1));
+                var consumeResult = _clientConsumer.Consume(TimeSpan.FromSeconds(1));
 
                 if (consumeResult?.Message == null)
                 {
-                    await Task.Delay(10, _cts.Token);
+                    await Task.Delay(10, _clientCts.Token);
                     continue;
                 }
 
@@ -106,13 +106,13 @@ public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
                     var entity = JsonSerializer.Deserialize<QueueEntity>(consumeResult.Message.Value);
                     if (entity != null)
                     {
-                        lock (_lock)
+                        lock (_clientLock)
                         {
-                            _receivedMessages.Add(entity);
+                            _receivedClientMessages.Add(entity);
                         }
                     }
 
-                    _consumer.Commit(consumeResult); // Bekräfta meddelandet
+                    _clientConsumer.Commit(consumeResult); // Bekräfta meddelandet
                 }
                 catch (JsonException jex)
                 {
@@ -131,7 +131,7 @@ public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
         }
     }
 
-    private async Task<int> ProduceMessageAsync(string topic, QueueEntity entity)
+    private async Task<int> ProduceClientMessageAsync(QueueEntity entity)
     {
         var config = new ProducerConfig
         {
@@ -146,7 +146,7 @@ public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
 
         try
         {
-            var result = await producer.ProduceAsync(topic, new Message<Null, string> { Value = jsonMessage });
+            var result = await producer.ProduceAsync(_clientQueueTopic, new Message<Null, string> { Value = jsonMessage });
             return result.Status == PersistenceStatus.Persisted ? 1 : 0;
         }
         catch (Exception ex)
@@ -158,7 +158,7 @@ public class ClientQueueRepository : IClientHubQueueRepository, IDisposable
 
     public void Dispose()
     {
-        _consumer.Close();
-        _consumer.Dispose();
+        _clientConsumer.Close();
+        _clientConsumer.Dispose();
     }
 }

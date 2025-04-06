@@ -16,6 +16,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
+using Shared.Interfaces;
+using Shared.Repositories;
 using System.Globalization;
 using System.Threading.Tasks;
 
@@ -68,7 +70,7 @@ public class Program
         builder.Services.AddAuthentication();
         builder.Services.AddAuthorization();
 
-        builder.Services.AddSingleton<IClientHubQueueRepository, ClientQueueRepository>();
+        builder.Services.AddSingleton<IClientQueueRepository, QueueRepository>();
         builder.Services.AddTransient<IClientMessageHub, ClientMessageHub>();
         builder.Services.AddSingleton<JobStatusManager>();
         var app = builder.Build();
