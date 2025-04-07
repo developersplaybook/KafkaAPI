@@ -137,8 +137,8 @@ public class ClientQueueRepository : IClientQueueRepository, IDisposable
         {
             BootstrapServers = _bootstrapServers,
             Acks = Acks.Leader,  // Snabbare leverans
-            LingerMs = 5,        // Minska fördröjning innan meddelandet skickas
-            BatchNumMessages = 10 // Skickar i batchar
+            LingerMs = 0,        // Minska fördröjning innan meddelandet skickas
+            BatchNumMessages = 1 // Skickar i batchar
         };
 
         using var producer = new ProducerBuilder<Null, string>(config).Build();
