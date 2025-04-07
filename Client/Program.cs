@@ -70,7 +70,7 @@ public class Program
         builder.Services.AddAuthentication();
         builder.Services.AddAuthorization();
 
-        builder.Services.AddSingleton<IClientQueueRepository, QueueRepository>();
+        builder.Services.AddSingleton<IClientQueueRepository, ClientQueueRepository>();
         builder.Services.AddTransient<IClientMessageHub, ClientMessageHub>();
         builder.Services.AddSingleton<JobStatusManager>();
         var app = builder.Build();

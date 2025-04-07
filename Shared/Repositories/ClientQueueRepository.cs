@@ -9,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace Shared.Repositories;
-public class QueueRepository : IClientQueueRepository, IDisposable
+public class ClientQueueRepository : IClientQueueRepository, IDisposable
 {
     private readonly string _bootstrapServers = "host.docker.internal:9092";
     private readonly string _clientQueueTopic = "client-queue";
@@ -23,7 +23,7 @@ public class QueueRepository : IClientQueueRepository, IDisposable
 
     private readonly IConsumer<Ignore, string> _clientConsumer;
 
-    public QueueRepository()
+    public ClientQueueRepository()
     {
         var clientConfig = new ConsumerConfig
         {
