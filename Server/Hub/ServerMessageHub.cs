@@ -13,13 +13,13 @@ namespace Server.Hub
 {
     public class ServerMessageHub : IServerMessageHub
     {
-        private readonly IServerQueueRepository _queueRepository;
+        private readonly IServerQueueRepository _serverQueueRepository;
         private readonly ICompanyRepository _companyRepository;
         private readonly ICarRepository _carRepository;
 
-        public ServerMessageHub(IServerQueueRepository queueRepository, ICompanyRepository companyRepository, ICarRepository carRepository)
+        public ServerMessageHub(IServerQueueRepository serverQueueRepository, ICompanyRepository companyRepository, ICarRepository carRepository)
         {
-            _queueRepository = queueRepository;
+            _serverQueueRepository = serverQueueRepository;
             _companyRepository = companyRepository;
             _carRepository = carRepository;
         }
@@ -28,7 +28,7 @@ namespace Server.Hub
         {
             while (true)
             {
-                var clientMessage = await _queueRepository.GetMessageFromClientQueueAsync(); ;
+                var clientMessage = await _serverQueueRepository.GetMessageFromClientQueueAsync(); ;
                 if (clientMessage == null) break;
 
                 await HandleMessageFromClientAsync(clientMessage);
@@ -72,7 +72,7 @@ namespace Server.Hub
                 StatusDate = DateTime.Now,
             };
 
-            await _queueRepository.AddServerQueueItemAsync(entity);
+            await _serverQueueRepository.AddServerQueueItemAsync(entity);
 
         }
 

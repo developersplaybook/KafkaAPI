@@ -9,11 +9,11 @@ namespace Client.Hub
 {
     public class ClientMessageHub : IClientMessageHub
     {       
-        private readonly IClientQueueRepository _queueRepository;
+        private readonly IClientQueueRepository _clientQueueRepository;
 
-        public ClientMessageHub(IClientQueueRepository queueRepository)
+        public ClientMessageHub(IClientQueueRepository clientQueueRepository)
         {
-            _queueRepository = queueRepository;
+            _clientQueueRepository = clientQueueRepository;
         }
         public async Task SendMessageToServerAsync(object message, Guid correlationId)
         {
@@ -32,7 +32,7 @@ namespace Client.Hub
             };
 
             // Add the entity to the server queue
-            await _queueRepository.AddClientQueueItemAsync(entity);
+            await _clientQueueRepository.AddClientQueueItemAsync(entity);
         }
 
         public async Task<TResponse> ListenForMessageFromServerAsync<TResponse>(Guid correlationId)
@@ -40,7 +40,7 @@ namespace Client.Hub
             while (true)
             {
                 // Poll the server queue for a message with the matching correlation ID
-                var response = await _queueRepository.GetMessageFromServerByCorrelationIdAsync(correlationId);
+                var response = await _clientQueueRepository.GetMessageFromServerByCorrelationIdAsync(correlationId);
 
                 if (response != null)
                 {
