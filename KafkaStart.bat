@@ -1,5 +1,5 @@
-rem This script ensures that Zookeeper and Kafka start correctly, even if the containers do not already exist.
-rem The script starts the containers if they are not running and prepares them for use.
+:: This script ensures that Zookeeper and Kafka start correctly, even if the containers do not already exist.
+:: script starts the containers if they are not running and prepares them for use.
 
 @echo off
 echo Starting Kafka...

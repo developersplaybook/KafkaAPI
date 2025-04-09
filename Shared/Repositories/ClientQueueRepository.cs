@@ -15,11 +15,11 @@ public class ClientQueueRepository : IClientQueueRepository, IDisposable
     private readonly string _clientQueueTopic = "client-queue";
     private readonly string _serverQueueTopic = "server-queue";
 
-    private readonly List<QueueEntity> _receivedClientMessages = new(); // Enkel buffert
+    private readonly List<QueueEntity> _receivedClientMessages = new(); // Simple buffer
     private static readonly SemaphoreSlim _clientSemaphore = new(1, 1);
     private static int _isClientConsuming = 0;
     private readonly CancellationTokenSource _clientCts = new();
-    private static readonly object _clientLock = new(); // För att skydda _receivedMessages
+    private static readonly object _clientLock = new(); // To protect _receivedMessages
 
     private readonly IConsumer<Ignore, string> _clientConsumer;
 
@@ -49,7 +49,7 @@ public class ClientQueueRepository : IClientQueueRepository, IDisposable
 
     public async Task<QueueEntity?> GetMessageFromServerByCorrelationIdAsync(Guid correlationId)
     {
-        // Starta konsumtion om den inte redan pågår
+        // Start consuming if it's not already running
         if (Interlocked.CompareExchange(ref _isClientConsuming, 1, 0) == 0)
         {
             _ = Task.Run(() => ConsumeClientLoopAsync());
@@ -58,7 +58,7 @@ public class ClientQueueRepository : IClientQueueRepository, IDisposable
         await _clientSemaphore.WaitAsync();
         try
         {
-            // Vänta tills meddelandet finns i _receivedMessages
+            // Wait until the message is found in _receivedMessages
             while (true)
             {
                 if (_receivedClientMessages.Count == 0)
@@ -70,7 +70,7 @@ public class ClientQueueRepository : IClientQueueRepository, IDisposable
                 var match = _receivedClientMessages.FirstOrDefault(x => x?.CorrelationId == correlationId);
                 if (match != null)
                 {
-                    // Ta bort meddelandet från listan när det matchas
+                    // Remove the message from the list when matched
                     _receivedClientMessages.Remove(match);
                     return match;
                 }
@@ -112,12 +112,12 @@ public class ClientQueueRepository : IClientQueueRepository, IDisposable
                         }
                     }
 
-                    _clientConsumer.Commit(consumeResult); // Bekräfta meddelandet
+                    _clientConsumer.Commit(consumeResult); // Acknowledge the message
                 }
                 catch (JsonException jex)
                 {
                     Console.WriteLine($"JSON parse error: {jex.Message}");
-                    // Här kan du logga/skicka till "dead letter queue" eller liknande
+                    // Here you can log/send to "dead letter queue" or similar
                 }
             }
         }
@@ -136,9 +136,9 @@ public class ClientQueueRepository : IClientQueueRepository, IDisposable
         var config = new ProducerConfig
         {
             BootstrapServers = _bootstrapServers,
-            Acks = Acks.Leader,  // Snabbare leverans
-            LingerMs = 0,        // Minska fördröjning innan meddelandet skickas
-            BatchNumMessages = 1 // Skickar i batchar
+            Acks = Acks.Leader,  // Faster delivery
+            LingerMs = 0,        // Reduce delay before message is sent
+            BatchNumMessages = 1
         };
 
         using var producer = new ProducerBuilder<Null, string>(config).Build();

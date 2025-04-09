@@ -15,11 +15,11 @@ public class ServerQueueRepository : IServerQueueRepository, IDisposable
     private readonly string _clientQueueTopic = "client-queue";
     private readonly string _serverQueueTopic = "server-queue";
 
-    private readonly List<QueueEntity> _receivedServerMessages = new(); // Enkel buffert
+    private readonly List<QueueEntity> _receivedServerMessages = new(); // Simple buffer
     private static readonly SemaphoreSlim _serverSemaphore = new(1, 1);
     private static int _isServerConsuming = 0;
     private readonly CancellationTokenSource _serverCts = new();
-    private static readonly object _serverLock = new(); // För att skydda _receivedMessages
+    private static readonly object _serverLock = new(); // To protect _receivedMessages
 
     private readonly IConsumer<Ignore, string> _serverConsumer;
 
@@ -49,7 +49,7 @@ public class ServerQueueRepository : IServerQueueRepository, IDisposable
 
     public async Task<QueueEntity?> GetMessageFromClientQueueAsync()
     {
-        // Starta konsumtion om den inte redan pågår
+        // Start consumption if not already running
         if (Interlocked.CompareExchange(ref _isServerConsuming, 1, 0) == 0)
         {
             _ = Task.Run(() => ConsumeServerLoopAsync());
@@ -69,7 +69,7 @@ public class ServerQueueRepository : IServerQueueRepository, IDisposable
                 var match = _receivedServerMessages.FirstOrDefault();
                 if (match != null)
                 {
-                    // Ta bort meddelandet från listan när det matchas
+                    // Remove message from list when matched
                     _receivedServerMessages.Remove(match);
                     return match;
                 }
@@ -107,7 +107,7 @@ public class ServerQueueRepository : IServerQueueRepository, IDisposable
                     _receivedServerMessages.Add(entity);
                 }
 
-                _serverConsumer.Commit(consumeResult); // Bekräfta meddelandet
+                _serverConsumer.Commit(consumeResult); // Acknowledge message
             }
         }
         catch (OperationCanceledException)
@@ -125,9 +125,9 @@ public class ServerQueueRepository : IServerQueueRepository, IDisposable
         var config = new ProducerConfig
         {
             BootstrapServers = _bootstrapServers,
-            Acks = Acks.Leader,  // Snabbare leverans
-            LingerMs = 0,        // Minska fördröjning innan meddelandet skickas
-            BatchNumMessages = 1 // Skickar i batchar
+            Acks = Acks.Leader,  // Faster delivery
+            LingerMs = 0,        // Reduce delay before message is sent
+            BatchNumMessages = 1 // Send in batches
         };
 
         using var producer = new ProducerBuilder<Null, string>(config).Build();

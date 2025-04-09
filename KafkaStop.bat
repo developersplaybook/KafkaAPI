@@ -1,4 +1,4 @@
-rem This script stops and removes the Kafka and Zookeeper containers, as well as any resources that are no longer needed
+:: This script stops and removes the Kafka and Zookeeper containers, as well as any resources that are no longer needed
 @echo off
 echo Stopping Kafka...
 
