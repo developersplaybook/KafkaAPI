@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
 
 namespace Client.Models
 {
@@ -16,6 +15,7 @@ namespace Client.Models
         SunJob,
         TruckJob
     }
+
     public class JobStatusManager
     {
         private Dictionary<JobName, JobInfo> jobStatus;

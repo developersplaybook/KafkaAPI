@@ -67,10 +67,8 @@ const carTimerJob = (apiPort) => {
         data: JSON.stringify(selectedCar),
         dataType: "json",
         success: (response) => {
-
         },
         error: (error) => {
-
         }
       });
 

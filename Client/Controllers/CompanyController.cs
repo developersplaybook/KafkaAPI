@@ -12,13 +12,12 @@ using System.Threading.Tasks;
 
 namespace CarClient.Controllers
 {
-
     [Route("[controller]")]
     [Controller]
     public class CompanyController : Controller
     {
-        readonly SignInManager<ApplicationUser> _signInManager;
-        readonly IClientMessageHub _clientMessageHub;
+        private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly IClientMessageHub _clientMessageHub;
 
         public CompanyController(SignInManager<ApplicationUser> signInManager, IClientMessageHub clientMessageHub)
         {
@@ -26,9 +25,7 @@ namespace CarClient.Controllers
             _clientMessageHub = clientMessageHub;
         }
 
-
         [HttpGet("/company")]
-
         public async Task<IActionResult> Index()
         {
             if (!_signInManager.IsSignedIn(User)) return RedirectToAction("Index", "Home");
@@ -55,7 +52,6 @@ namespace CarClient.Controllers
             return View(companyViewModel);
         }
 
-
         [HttpGet("/company/details")]
         public async Task<IActionResult> Details(Guid id)
         {
@@ -75,7 +71,7 @@ namespace CarClient.Controllers
         }
 
         // POST: Company/Create
-        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
+        // To protect from overposting attacks, please enable the specific properties you want to bind to, for
         // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost("/company/create")]
         [ValidateAntiForgeryToken]
@@ -104,7 +100,7 @@ namespace CarClient.Controllers
         }
 
         // POST: Company/Edit/5
-        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
+        // To protect from overposting attacks, please enable the specific properties you want to bind to, for
         // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost("/company/edit")]
         [HttpPost]

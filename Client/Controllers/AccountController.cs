@@ -12,15 +12,14 @@ using System.Threading.Tasks;
 
 namespace Client.Controllers
 {
-
     [Authorize]
     [Route("[controller]/[action]")]
     public class AccountController : Controller
     {
-        readonly IEmailSender _emailSender;
-        readonly ILogger _logger;
-        readonly SignInManager<ApplicationUser> _signInManager;
-        readonly UserManager<ApplicationUser> _userManager;
+        private readonly IEmailSender _emailSender;
+        private readonly ILogger _logger;
+        private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly UserManager<ApplicationUser> _userManager;
 
         public AccountController(
             UserManager<ApplicationUser> userManager,
@@ -386,7 +385,6 @@ namespace Client.Controllers
             return View();
         }
 
-
         [HttpGet]
         public IActionResult AccessDenied()
         {
@@ -408,6 +406,6 @@ namespace Client.Controllers
             return RedirectToAction(nameof(HomeController.Index), "Home");
         }
 
-        #endregion
+        #endregion Helpers
     }
 }

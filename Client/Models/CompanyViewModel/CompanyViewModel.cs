@@ -1,10 +1,10 @@
-﻿using System.Collections.Generic;
-using Shared.Models;
+﻿using Shared.Models;
+using System.Collections.Generic;
 
 namespace Client.Models.CompanyViewModel
 {
-	public class CompanyViewModel
+    public class CompanyViewModel
     {
-	    public List<Company> Companies { get; set; }
-	}
+        public List<Company> Companies { get; set; }
+    }
 }

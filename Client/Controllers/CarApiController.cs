@@ -15,8 +15,8 @@ namespace Client.Controllers
     [Route("api/[controller]")]
     public class CarApiController : ControllerBase
     {
-        readonly SignInManager<ApplicationUser> _signInManager;
-        readonly IClientMessageHub _clientMessageHub;
+        private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly IClientMessageHub _clientMessageHub;
 
         public CarApiController(SignInManager<ApplicationUser> signInManager, IClientMessageHub clientMessageHub)
         {

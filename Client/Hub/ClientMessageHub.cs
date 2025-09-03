@@ -8,13 +8,14 @@ using System.Threading.Tasks;
 namespace Client.Hub
 {
     public class ClientMessageHub : IClientMessageHub
-    {       
+    {
         private readonly IClientQueueRepository _clientQueueRepository;
 
         public ClientMessageHub(IClientQueueRepository clientQueueRepository)
         {
             _clientQueueRepository = clientQueueRepository;
         }
+
         public async Task SendMessageToServerAsync(object message, Guid correlationId)
         {
             // Serialize the message

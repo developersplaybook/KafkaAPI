@@ -1,16 +1,17 @@
-﻿using System.Collections.Generic;
+﻿using Shared.Models;
 using System;
-using Shared.Models;
+using System.Collections.Generic;
 
 namespace Client.Models.HomeViewModel
 {
-	public class HomeViewModel : Car
+    public class HomeViewModel : Car
     {
-	    public HomeViewModel(Guid companyId) : base(companyId)
-	    {
-		    CompanyId = companyId;
-	    }
-		public List<Company> Companies { get; set; }
+        public HomeViewModel(Guid companyId) : base(companyId)
+        {
+            CompanyId = companyId;
+        }
+
+        public List<Company> Companies { get; set; }
 
         public JobStatusManager JobStateManager { get; set; }
     }

@@ -41,8 +41,6 @@ namespace Client.Extensions
             headers.Append("Cache-Control", "no-store");
         }
 
-
-
         public static void SetStaticFileSecurityHeaders(this HttpContext context, bool isDevelopment)
         {
             var headers = context.Response.Headers;
@@ -65,7 +63,6 @@ namespace Client.Extensions
 
             headers.Append("Cache-Control", "public");
         }
-
 
         private static void SetGeneralSecurityHeaders(IHeaderDictionary headers, bool isDevelopment)
         {

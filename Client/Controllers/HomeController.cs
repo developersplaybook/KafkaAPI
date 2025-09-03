@@ -15,7 +15,7 @@ namespace Client.Controllers
 {
     public class HomeController : Controller
     {
-        readonly IClientMessageHub _serverMessageHub;
+        private readonly IClientMessageHub _serverMessageHub;
         private readonly JobStatusManager _jobStateManager;
 
         public HomeController(IClientMessageHub serverMessageHub, JobStatusManager jobStateManager)

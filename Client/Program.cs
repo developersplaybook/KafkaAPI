@@ -74,7 +74,7 @@ public class Program
         builder.Services.AddTransient<IClientMessageHub, ClientMessageHub>();
         builder.Services.AddSingleton<JobStatusManager>();
         var app = builder.Build();
-        
+
         using (var scope = app.Services.GetService<IServiceScopeFactory>().CreateScope())
         {
             scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.EnsureCreated();

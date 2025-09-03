@@ -13,20 +13,18 @@ using System.Threading.Tasks;
 
 namespace Client.Controllers
 {
-
     [Route("[controller]")]
     [Controller]
     public class CarController : Controller
     {
-        readonly SignInManager<ApplicationUser> _signInManager;
-        readonly IClientMessageHub _clientMessageHub;
+        private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly IClientMessageHub _clientMessageHub;
 
         public CarController(SignInManager<ApplicationUser> signInManager, IClientMessageHub clientMessageHub)
         {
             _signInManager = signInManager;
             _clientMessageHub = clientMessageHub;
         }
-
 
         [HttpGet("index")]
         public async Task<IActionResult> Index(Guid? id)
@@ -98,7 +96,7 @@ namespace Client.Controllers
         }
 
         // POST: Car/Create
-        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
+        // To protect from overposting attacks, please enable the specific properties you want to bind to, for
         // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost("create")]
         [ValidateAntiForgeryToken]
@@ -137,7 +135,7 @@ namespace Client.Controllers
         }
 
         // POST: Car/Edit/5
-        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
+        // To protect from overposting attacks, please enable the specific properties you want to bind to, for
         // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost("edit")]
         [ValidateAntiForgeryToken]
@@ -148,7 +146,6 @@ namespace Client.Controllers
             var correlationId = Guid.NewGuid();
             await _clientMessageHub.SendMessageToServerAsync(new GetCarRequest(id), correlationId);
             var oldCarResponse = await _clientMessageHub.ListenForMessageFromServerAsync<GetCarResponse>(correlationId);
-
 
             var oldCar = oldCarResponse.Car;
             oldCar.Online = car.Online;
@@ -180,7 +177,6 @@ namespace Client.Controllers
             var correlationId = Guid.NewGuid();
             await _clientMessageHub.SendMessageToServerAsync(new GetCarRequest(id), correlationId);
             var getCarResponse = await _clientMessageHub.ListenForMessageFromServerAsync<GetCarResponse>(correlationId);
-
 
             correlationId = Guid.NewGuid();
             await _clientMessageHub.SendMessageToServerAsync(new DeleteCarRequest(id), correlationId);
