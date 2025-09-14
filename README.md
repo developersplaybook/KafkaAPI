@@ -1,3 +1,12 @@
 # KafkaAPI
-Start kafka docker with CMD:>docker-compose up -d
-Please refer to document Chapter9MessagingWithKafka.docs on the solution folder
+# Kafka Development Environment
+
+## Prerequisites
+- Docker Desktop installed
+- Docker Compose installed
+
+## Quick Start
+
+### Windows
+```bash
+start-kafka.bat

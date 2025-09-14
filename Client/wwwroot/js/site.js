@@ -1,6 +1,4 @@
 ﻿$(document).ready(() => {
-  const apiPort = 63566;
-
   const ShowCars = () => {
     window.location = "/Car/index?id=" + $('#CarsForCompany').val();
   };
@@ -12,8 +10,8 @@
     button.addEventListener('click', doFiltering);
   });
 
-  carTimerJob(apiPort);
-  jobTimer(apiPort);
+  carTimerJob();
+  jobTimer();
   console.log('documentReady');
 });
 
@@ -40,20 +38,24 @@ const setupClearErrors = () => {
 
 document.addEventListener('DOMContentLoaded', setupClearErrors);
 
-const carTimerJob = (apiPort) => {
+const carTimerJob = () => {
   const halfSecond = 500;
-  const oneTenthSecond = 100;
+  const oneSecond = 1000;
+
+  const apiBaseUrl = window.location.origin;
   $.ajax({
-    url: `http://localhost:${apiPort}/api/carapi/getallcars`,
+    url: `${apiBaseUrl}/api/carapi/getallcars`,
     type: "GET",
     dataType: "json",
     success: (cars) => {
       if (cars.length === 0) {
-        setTimeout(() => carTimerJob(apiPort), oneTenthSecond);
+        setTimeout(() => carTimerJob(), oneSecond);
         console.log("No cars were found!");
         return;
       }
+
       const selectedItem = Math.floor(Math.random() * cars.length);
+
       let selectedCar = cars[selectedItem];
       if (selectedCar.disabled === true) {
         console.log(selectedCar.regNr + " is blocked for updating of Online/Offline!");
@@ -61,14 +63,16 @@ const carTimerJob = (apiPort) => {
       }
       selectedCar.online = !selectedCar.online;
       $.ajax({
-        url: `http://localhost:${apiPort}/api/carapi/updateonline`,
+        url: `${apiBaseUrl}/api/carapi/updateonline`,
         contentType: "application/json",
         type: "POST",
         data: JSON.stringify(selectedCar),
         dataType: "json",
         success: (response) => {
+
         },
         error: (error) => {
+
         }
       });
 
@@ -97,7 +101,7 @@ const carTimerJob = (apiPort) => {
       }
     }
   });
-  setTimeout(() => carTimerJob(apiPort), halfSecond);
+  setTimeout(() => carTimerJob(), halfSecond);
 };
 
 const doFiltering = () => {
@@ -130,11 +134,12 @@ const doFiltering = () => {
 
 let oldJobs = {};
 
-const jobTimer = (apiPort) => {
-  const oneTenthSecond = 100;
+const jobTimer = () => {
+  const oneSecond = 1000;
+  const apiBaseUrl = window.location.origin;
 
   $.ajax({
-    url: `http://localhost:${apiPort}/api/jobstatus/getalljobs`,
+    url: `${apiBaseUrl}/api/jobstatus/getalljobs`,
     type: "GET",
     dataType: "json",
     success: (jobs) => {
@@ -156,7 +161,7 @@ const jobTimer = (apiPort) => {
     }
   });
 
-  setTimeout(() => jobTimer(apiPort), oneTenthSecond); // Schedule the next call
+  setTimeout(() => jobTimer(), oneSecond); // Schedule the next call
 };
 
 function setJobStatus(jobId, newStatus) {
